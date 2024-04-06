@@ -438,19 +438,8 @@ pub async fn collect_info(
                         get_node_utilization(client.clone(), node_name).await;
                 }
 
-                cluster_cpu_req += cpu_requests;
-                cluster_mem_req += mem_requests;
-                cluster_cpu_usage += node_cpu_usage;
-                cluster_mem_usage += node_mem_usage;
-                cluster_storage_req += storage_requests;
-                cluster_pods_req += pods;
-
                 let (cpu_total, mem_total, storage_total, pods_total) =
                     get_node_info(client.clone(), node_name).await;
-                cluster_cpu_total += cpu_total;
-                cluster_mem_total += mem_total;
-                cluster_storage_total += storage_total;
-                cluster_pods_total += pods_total;
 
                 add_data(
                     node_name.to_string(),
@@ -467,6 +456,18 @@ pub async fn collect_info(
                     rrs,
                 )
                 .await;
+
+                // cluster all resource ++
+                cluster_cpu_req += cpu_requests;
+                cluster_mem_req += mem_requests;
+                cluster_cpu_usage += node_cpu_usage;
+                cluster_mem_usage += node_mem_usage;
+                cluster_storage_req += storage_requests;
+                cluster_pods_req += pods;
+                cluster_cpu_total += cpu_total;
+                cluster_mem_total += mem_total;
+                cluster_storage_total += storage_total;
+                cluster_pods_total += pods_total;
             }
         }
         ResourceType::Namespace => {
@@ -483,6 +484,12 @@ pub async fn collect_info(
                     return;
                 }
             };
+            (
+                cluster_cpu_total,
+                cluster_mem_total,
+                cluster_storage_total,
+                cluster_pods_total,
+            ) = get_cluster_node_info(client.clone()).await;
 
             for namespace in namespaces.items {
                 // resource_names.push(namespace.metadata.name.unwrap());
@@ -498,48 +505,29 @@ pub async fn collect_info(
                         get_pod_utilization(client.clone(), namespace_name).await;
                 }
 
-                if (
+                add_data(
+                    namespace_name.to_string(),
+                    cpu_requests,
                     cluster_cpu_total,
+                    pod_cpu_usage,
+                    mem_requests,
                     cluster_mem_total,
+                    pod_mem_usage,
+                    storage_requests,
                     cluster_storage_total,
+                    pods,
                     cluster_pods_total,
-                ) == (0, 0.0, 0.0, 0)
-                {
-                    (
-                        cluster_cpu_total,
-                        cluster_mem_total,
-                        cluster_storage_total,
-                        cluster_pods_total,
-                    ) = get_cluster_node_info(client.clone()).await;
-                }
-                let (cpu_total, mem_total, storage_total, pods_total) = (
-                    cluster_cpu_total,
-                    cluster_mem_total,
-                    cluster_storage_total,
-                    cluster_pods_total,
-                );
+                    rrs,
+                )
+                .await;
+
+                // cluster resource ++
                 cluster_cpu_req += cpu_requests;
                 cluster_mem_req += mem_requests;
                 cluster_cpu_usage += pod_cpu_usage;
                 cluster_mem_usage += pod_mem_usage;
                 cluster_storage_req += storage_requests;
                 cluster_pods_req += pods;
-
-                add_data(
-                    namespace_name.to_string(),
-                    cpu_requests,
-                    cpu_total,
-                    pod_cpu_usage,
-                    mem_requests,
-                    mem_total,
-                    pod_mem_usage,
-                    storage_requests,
-                    storage_total,
-                    pods,
-                    pods_total,
-                    rrs,
-                )
-                .await;
             }
         }
     };
