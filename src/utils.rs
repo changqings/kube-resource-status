@@ -1,5 +1,5 @@
 use std::cmp::Reverse;
-use std::{str::FromStr};
+use std::str::FromStr;
 
 use super::kubernetes;
 
@@ -21,27 +21,24 @@ impl FromStr for Filter {
             "mem" => Ok(Filter::Mem),
             "storage" => Ok(Filter::Storage),
             "pods" => Ok(Filter::Pods),
-            _ => Err(format!("invalid filter {}", s))
+            _ => Err(format!("invalid filter {}", s)),
         }
     }
 }
 
-pub fn parse_resource_data(rrs: Vec<kubernetes::ResouceRequests>, sort_by: Filter) -> Vec<kubernetes::ResourceStatus> {
-    let mut rss = Vec::new();
+pub fn parse_resource_data(
+    rrs: Vec<kubernetes::ResouceRequests>,
+    sort_by: Filter,
+) -> Vec<kubernetes::ResourceStatus> {
     let mut data: Vec<kubernetes::ResouceRequests> = rrs.clone();
+    let mut result = Vec::new();
 
     match sort_by {
         Filter::Cpu => data.sort_by_key(|r| Reverse(r.cpu_requests)),
-        Filter::Mem => {
-            data.sort_by(|a, b| {
-                b.mem_requests.partial_cmp(&a.mem_requests).unwrap()
-            })
-        },
+        Filter::Mem => data.sort_by(|a, b| b.mem_requests.partial_cmp(&a.mem_requests).unwrap()),
         Filter::Storage => {
-            data.sort_by(|a, b| {
-                b.storage_requests.partial_cmp(&a.storage_requests).unwrap()
-            })
-        },
+            data.sort_by(|a, b| b.storage_requests.partial_cmp(&a.storage_requests).unwrap())
+        }
         Filter::Pods => data.sort_by_key(|r| Reverse(r.pods)),
         _ => (),
     }
@@ -62,21 +59,28 @@ pub fn parse_resource_data(rrs: Vec<kubernetes::ResouceRequests>, sort_by: Filte
             format!("{}Mi ({:.2}%)", rr.storage_requests, storage_req_percentage),
             format!("{} / {}", rr.pods, rr.pods_total),
         );
-        rss.push(rs);
-
-
+        result.push(rs);
     }
 
-    return rss;
+    return result;
 }
 
 pub async fn add_data(
-    node_name: String, cpu_requests: u32, cpu_total: u32, cpu_usage: u32, mem_requests: f32,
-    mem_total: f32, mem_usage: f32, storage_requests: f32, storage_total: f32, pods: usize,
-    pods_total: usize, rrs: &mut Vec<kubernetes::ResouceRequests>
+    resource_name: String, //resource_name, pod or namespace
+    cpu_requests: u32,
+    cpu_total: u32,
+    cpu_usage: u32,
+    mem_requests: f32,
+    mem_total: f32,
+    mem_usage: f32,
+    storage_requests: f32,
+    storage_total: f32,
+    pods: usize,
+    pods_total: usize,
+    rrs: &mut Vec<kubernetes::ResouceRequests>,
 ) {
     rrs.push(kubernetes::ResouceRequests::new(
-        node_name,
+        resource_name,
         cpu_requests,
         cpu_total,
         cpu_usage,

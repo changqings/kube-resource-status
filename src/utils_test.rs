@@ -26,5 +26,4 @@ fn test_parse_capacity_requests() {
     assert_eq!(parse_capacity_requests(String::from("10G")), 9536.74);
     assert_eq!(parse_capacity_requests(String::from("1M")), 0.953674);
     assert_eq!(parse_capacity_requests(String::from("1T")), 953674.0);
-
 }

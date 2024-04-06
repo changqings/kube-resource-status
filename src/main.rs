@@ -1,8 +1,9 @@
+use kube::Client;
 use std::str::FromStr;
-use kube::{Client};
 
+use anyhow::Result;
 use bpaf::Bpaf;
-use tabled::{Table, Style, Disable, locator::ByColumnName};
+use tabled::{locator::ByColumnName, Disable, Style, Table};
 
 #[derive(Clone, Debug, Bpaf)]
 #[bpaf(options, version)]
@@ -19,56 +20,45 @@ struct Options {
     resource_type: Option<String>,
     #[bpaf(short('s'), long)]
     /// filter by cpu, mem, storage or pods
-    sort_by: Option<String>
+    sort_by: Option<String>,
 }
 
-mod utils;
 mod kubernetes;
+mod utils;
 
 #[cfg(test)]
 mod utils_test;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let opts = options().run();
     let mut sort_by = utils::Filter::None;
     let mut resource_type = kubernetes::ResourceType::Node;
 
     if let Some(rt) = opts.resource_type {
-        resource_type = match kubernetes::ResourceType::from_str(&rt) {
-            Ok(rt) => rt,
-            Err(e) => {
-                eprintln!("{}", e);
-                return;
-            }
-        };
+        resource_type = kubernetes::ResourceType::from_str(&rt).unwrap();
     }
 
     if let Some(s) = opts.sort_by {
-        sort_by = match utils::Filter::from_str(&s) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("{}", e);
-                return;
-            }
-        }
+        sort_by = utils::Filter::from_str(&s).unwrap();
     }
 
     let mut resource_req = Vec::new();
 
-    let client = match Client::try_default().await {
-        Err(e) => {
-            eprintln!("Error creating kubernetes client {:?}", e);
-            return;
-       },
-        Ok(client) => client,
-    };
+    let client = Client::try_default().await?;
 
-    kubernetes::collect_info(client.clone(), &mut resource_req, resource_type, opts.utilization, opts.selector).await;
+    kubernetes::collect_info(
+        client.clone(),
+        &mut resource_req,
+        resource_type,
+        opts.utilization,
+        opts.selector,
+    )
+    .await;
 
     let data = utils::parse_resource_data(resource_req, sort_by);
     let mut table = Table::new(&data);
-        
+
     table.with(Style::rounded());
     if !opts.utilization {
         table.with(Disable::column(ByColumnName::new("cpu usage")));
@@ -76,4 +66,5 @@ async fn main() {
     }
 
     println!("{}", table);
+    Ok(())
 }
